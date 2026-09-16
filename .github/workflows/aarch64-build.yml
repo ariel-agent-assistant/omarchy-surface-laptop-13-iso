@@ -1,14 +1,18 @@
 name: aarch64 ISO Build
 
-# Build the aarch64 package repository and ISO on a native ARM runner.
+# Build an ISO from the published ARM repositories on a native ARM runner.
 
 on:
   workflow_dispatch:
     inputs:
-      pkgs_ref:
-        description: "omarchy-pkgs branch, tag or SHA to build the [omarchy] repo from"
-        type: string
-        default: master
+      channel:
+        description: "Published package channel (independent of the ISO branch)"
+        type: choice
+        default: edge
+        options:
+          - edge
+          - rc
+          - stable
       media_target:
         description: "ARM live-media boot path"
         type: choice
@@ -16,37 +20,23 @@ on:
         options:
           - aarch64/snapdragon
           - aarch64/generic
-      iso_make_args:
-        description: "Extra bin/omarchy-iso-make arguments (e.g. --edge)"
-        type: string
-        default: ""
+
+permissions:
+  contents: read
 
 jobs:
-  packages:
-    uses: omacom/omarchy-pkgs/.github/workflows/build-aarch64.yml@master
-    with:
-      pkgs_repository: omacom/omarchy-pkgs
-      pkgs_ref: ${{ inputs.pkgs_ref || 'master' }}
-      # Packages installed from the local aarch64 Omarchy repository.
-      packages: >-
-        omarchy-keyring ttf-jetbrains-mono-nerd-basic limine-mkinitcpio-hook limine-snapper-sync
-        linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings omarchy omarchy-nvim
-        aether cliamp herdr localsend-bin mise-bin omacalc omacut omawrite omarchy-chromium-bin
-        ttfx yay tobi-try ttf-ia-writer ufw-docker xdg-terminal-exec yaru-icon-theme
-        tzupdate tensaku hyprtoolkit hyprland-guiutils hyprland hyprland-preview-share-picker
-
   build-iso:
-    needs: packages
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 330
     env:
-      ISO_MAKE_ARGS: ${{ inputs.iso_make_args }}
+      PACKAGE_CHANNEL: ${{ inputs.channel || 'edge' }}
       MEDIA_TARGET: ${{ inputs.media_target || 'aarch64/snapdragon' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: true
+          persist-credentials: false
 
       - name: Runner facts
         run: |
@@ -60,6 +50,7 @@ jobs:
 
       - name: Test ARM live build configuration
         run: |
+          sudo apt-get install -y -qq libarchive-tools >/dev/null
           bash test/unit/arch-package-filter-test.sh
           bash test/unit/aarch64-initramfs-test.sh
           python3 -m unittest discover -s test/unit -p test_local_repo_config.py
@@ -67,8 +58,10 @@ jobs:
           python3 -m unittest discover -s test/unit -p test_live_dsp.py
           python3 -m unittest discover -s test/unit -p test_hardware_platforms.py
           python3 -m unittest discover -s test/unit -p test_keyboard.py
+          python3 -m unittest discover -s test/unit -p test_arm_packages.py
+          python3 -m unittest discover -s test/unit -p test_arm_workflow.py
 
-      # The hosted runner's root disk is too small for both build stages.
+      # Leave room for the offline package mirror and ISO staging tree.
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@v1.3.1
         continue-on-error: true
@@ -76,24 +69,18 @@ jobs:
       - name: Disk after cleanup
         run: df -h
 
-      - name: Download the aarch64 [omarchy] repository
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ needs.packages.outputs.artifact }}
-          path: omarchy-repo
-
-      - name: Inspect the repository
-        run: |
-          test -f omarchy-repo/omarchy.db
-          ls -la omarchy-repo | sed -n '1,50p'
-          du -sh omarchy-repo
-
       - name: Build ISO
+        id: build
         run: |
-          re='^[A-Za-z0-9 ._=/-]*$'
-          [[ $ISO_MAKE_ARGS =~ $re ]] || { echo "invalid iso_make_args" >&2; exit 1; }
+          channel_args=()
+          case "$PACKAGE_CHANNEL" in
+            edge) channel_args=(--edge) ;;
+            rc) channel_args=(--rc) ;;
+            stable) ;;
+            *) echo "Invalid package channel: $PACKAGE_CHANNEL" >&2; exit 1 ;;
+          esac
           start=$(date +%s)
-          NO_BOOT_OFFER=1 ./bin/omarchy-iso-make --keep-pkg-cache --local-repo "$PWD/omarchy-repo" $ISO_MAKE_ARGS --arch aarch64 --media-target "$MEDIA_TARGET"
+          ./bin/omarchy-iso-make --keep-pkg-cache --no-boot-offer "${channel_args[@]}" --arch aarch64 --media-target "$MEDIA_TARGET"
           echo "ISO build wall-clock: $(( $(date +%s) - start ))s"
 
       - name: Inspect ISO
@@ -117,7 +104,7 @@ jobs:
       - name: Upload newly built ISO artifact
         uses: actions/upload-artifact@v4
         with:
-          name: omarchy-iso-aarch64-${{ github.run_number }}
+          name: omarchy-iso-aarch64-${{ inputs.channel || 'edge' }}-${{ github.run_number }}
           path: ./release/*.iso
           if-no-files-found: error
           retention-days: 3

@@ -52,6 +52,24 @@ name = "omarchy-generic" if args["OMARCHY_MEDIA_TARGET"] == "aarch64/generic" el
                                "--keep-pkg-cache", "--no-boot-offer", "--edge", *args],
                               cwd=self.root, env=self.env, capture_output=True, text=True)
 
+    def test_published_channels_select_the_matching_mirror_without_local_packages(self):
+        for options, mirror, ref in (((), "stable", "quattro"),
+                                     (("--edge",), "edge", "edge"),
+                                     (("--rc",), "rc", "rc")):
+            with self.subTest(mirror=mirror):
+                result = subprocess.run(
+                    ["bash", str(self.root / "bin/omarchy-iso-make"),
+                     "--keep-pkg-cache", "--no-boot-offer", "--arch", "aarch64",
+                     "--media-target", "aarch64/snapdragon", *options],
+                    cwd=self.root, env=self.env, capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                args = json.loads((self.root / "docker.json").read_text())
+                self.assertIn(f"OMARCHY_MIRROR={mirror}", args)
+                self.assertIn(f"OMARCHY_ISO_REF={ref}", args)
+                self.assertFalse(any(":/omarchy-repo:" in arg for arg in args))
+                self.assertFalse(any(":/omarchy-source:" in arg for arg in args))
+
     def test_defaults_and_explicit_targets_select_image_platform_and_isolated_cache(self):
         cases = [
             ("arm64", (), "aarch64", "snapdragon", "linux/arm64", "menci/archlinuxarm:base-devel"),

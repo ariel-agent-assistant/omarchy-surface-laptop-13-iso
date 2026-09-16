@@ -39,7 +39,11 @@ The build defaults to the host architecture, with Snapdragon media selected on A
 
 Snapdragon media uses a UKI with hardware-matched Qualcomm device trees. Generic ARM media uses GRUB and firmware-provided hardware tables, and must be selected explicitly. Neither target supports every ARM board; Apple Silicon and Raspberry Pi boot support are not included. The existing `omarchy-iso-boot` helper is x86-only.
 
-Both targets require an ARM package repository. Use `--local-repo <repo-dir>` for a prebuilt repository or `--local-source` as above to build from local checkouts. Offline caches are separated by channel, architecture and media target. Generic image filenames start with `omarchy-generic-`.
+Both targets use published ARM packages by default. The manual `aarch64 ISO Build` workflow selects `edge`, `rc` or `stable` and builds only the ISO. Package building, signing and publication stay with the existing `omarchy-pkgs` pipeline.
+
+The ISO branch and package channel are independent. Selecting the `dragon` ISO branch does not select Dragon runtime sources. The chosen channel must publish a compatible runtime and settings package, `linux-aarch64-pkgbase-shim`, and, for Snapdragon, `qcom-firmware-extract`. The build rejects packages missing the required ARM boot configuration or Snapdragon setup scripts. It does not publish missing packages or change repository trust settings.
+
+For unpublished changes, use `--local-repo <repo-dir>` for a prebuilt repository or `--local-source` as above to build runtime, settings and Neovim packages from local checkouts. Other missing packages still need to be supplied by the selected repository; the two options can be combined. Offline caches are separated by channel, architecture and media target. Generic image filenames start with `omarchy-generic-`.
 
 [configs/aarch64/platforms.json](configs/aarch64/platforms.json) supplies model-specific packages and installed boot arguments through exact vendor/product matches. Both targets use the package-owned `linux-aarch64-pkgbase-shim` for kernel-image handling.
 

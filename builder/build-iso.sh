@@ -454,22 +454,34 @@ fi
 printf '%s\n' "${required_package_files[@]}" |
   bash /builder/prune-offline-mirror.sh "$offline_mirror_dir"
 
-# Keep packages used only by post-install hooks in the offline mirror.
-require_offline_package() {
-  local required_name="$1" package_file package_name
+# Select by package metadata, not a prefix shared by runtime/settings packages.
+find_offline_package() {
+  local required_name="$1" package_file package_name found=""
 
-  for package_file in "$offline_mirror_dir/"*.pkg.tar.zst "$offline_mirror_dir/"*.pkg.tar.xz; do
-    [[ -f $package_file ]] || continue
+  for package_file in "$offline_mirror_dir/$required_name-"*.pkg.tar.*; do
+    [[ -f $package_file && $package_file != *.sig ]] || continue
     read -r package_name _ < <(pacman -Qp "$package_file" 2>/dev/null) || continue
-    [[ $package_name == "$required_name" ]] && return 0
+    [[ $package_name == "$required_name" ]] || continue
+    if [[ -n $found ]]; then
+      echo "ERROR: offline mirror has multiple packages named $required_name" >&2
+      return 1
+    fi
+    found=$package_file
   done
 
-  echo "ERROR: offline mirror is missing post-install package: $required_name" >&2
-  return 1
+  if [[ -z $found ]]; then
+    echo "ERROR: offline mirror is missing package: $required_name" >&2
+    return 1
+  fi
+  printf '%s\n' "$found"
 }
 
 if [[ $ISO_ARCH == aarch64 ]]; then
-  require_offline_package archlinuxarm-keyring
+  # Keep the keyring used only by post-install hooks in the offline mirror.
+  find_offline_package archlinuxarm-keyring >/dev/null
+  runtime_package=$(find_offline_package "$OMARCHY_RUNTIME_PACKAGE")
+  settings_package=$(find_offline_package "$OMARCHY_SETTINGS_PACKAGE")
+  bash /builder/check-arm-packages.sh "$OMARCHY_MEDIA_TARGET" "$runtime_package" "$settings_package"
 fi
 
 # Rebuild the offline repo db from scratch so size/checksum/depends entries
