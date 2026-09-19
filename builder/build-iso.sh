@@ -40,7 +40,7 @@ pacman --noconfirm -Sy archlinux-keyring
 # so this container can be months behind the mirror it installs from. A plain
 # -Sy install is then a partial upgrade — new packages linked against a glibc
 # the container doesn't have yet.
-pacman --noconfirm -Syu git sudo base-devel jq grub imagemagick neovim nodejs npm tree-sitter-cli
+pacman --noconfirm -Syu git sudo base-devel jq grub imagemagick neovim nodejs npm tree-sitter-cli dtc
 
 # Arch Linux ARM requires the vendored archiso fallback.
 if ! pacman --noconfirm -S --needed archiso; then
@@ -56,6 +56,9 @@ if ! pacman --noconfirm -S --needed archiso; then
   # Copy the DTB-carrying UKI from /boot into the ISO.
   patch -d /tmp/archiso-src -p1 --forward --batch \
     </builder/patches/archiso-copy-boot-efi.patch || true
+  # Copy /boot/dtbs into the ISO so GRUB can load a device tree explicitly.
+  patch -d /tmp/archiso-src -p1 --forward --batch \
+    </builder/patches/archiso-copy-dtbs.patch || true
   make -C /tmp/archiso-src PREFIX=/usr install-scripts install-profiles
 fi
 command -v mkarchiso
@@ -199,6 +202,9 @@ if [[ $ISO_ARCH == aarch64 ]]; then
     "$build_cache_dir/airootfs/usr/share/omarchy-iso/platforms.json"
   python /configs/airootfs/usr/share/omarchy-iso/orchestrator/hardware.py \
     /configs/aarch64/platforms.json "$OMARCHY_MEDIA_TARGET" > /tmp/platform.packages
+  if [[ $OMARCHY_MEDIA_TARGET == aarch64/snapdragon ]]; then
+    bash /builder/surface-laptop-13.sh "$build_cache_dir"
+  fi
   # The T2 kernel image is absent on aarch64.
   rm -f "$build_cache_dir/airootfs/etc/mkinitcpio.d/linux-t2.preset"
   echo "aarch64: staged live-ISO mkinitcpio overrides"

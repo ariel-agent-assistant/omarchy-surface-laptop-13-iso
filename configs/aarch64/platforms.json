@@ -6,9 +6,14 @@
       "name": "Lenovo Yoga Slim 7x",
       "media_target": "aarch64/snapdragon",
       "match": [
-        { "sys_vendor": "LENOVO", "product_name": "83ED" }
+        {
+          "sys_vendor": "LENOVO",
+          "product_name": "83ED"
+        }
       ],
-      "packages": ["linux-firmware-qcom"],
+      "packages": [
+        "linux-firmware-qcom"
+      ],
       "kernel_cmdline": []
     },
     {
@@ -16,7 +21,10 @@
       "name": "NVIDIA DGX Spark",
       "media_target": "aarch64/generic",
       "match": [
-        { "sys_vendor": "NVIDIA", "product_name": "NVIDIA_DGX_Spark" }
+        {
+          "sys_vendor": "NVIDIA",
+          "product_name": "NVIDIA_DGX_Spark"
+        }
       ],
       "packages": [
         "linux-aarch64-headers",
@@ -25,14 +33,20 @@
         "nvidia-utils",
         "nvidia-container-toolkit"
       ],
-      "kernel_cmdline": ["console=tty0", "plymouth.ignore-serial-consoles"]
+      "kernel_cmdline": [
+        "console=tty0",
+        "plymouth.ignore-serial-consoles"
+      ]
     },
     {
       "id": "asus-ascent-gx10",
       "name": "ASUS Ascent GX10",
       "media_target": "aarch64/generic",
       "match": [
-        { "sys_vendor": "ASUSTeK COMPUTER INC.", "product_name": "GX10" }
+        {
+          "sys_vendor": "ASUSTeK COMPUTER INC.",
+          "product_name": "GX10"
+        }
       ],
       "packages": [
         "linux-aarch64-headers",
@@ -42,6 +56,31 @@
         "nvidia-container-toolkit"
       ],
       "kernel_cmdline": []
+    },
+    {
+      "id": "microsoft-surface-laptop-13",
+      "name": "Microsoft Surface Laptop 13-inch 1st Edition with Snapdragon (2095)",
+      "media_target": "aarch64/snapdragon",
+      "match": [
+        {
+          "sys_vendor": "Microsoft Corporation",
+          "product_name": "Surface Laptop 13in 1st Ed with Snapdragon"
+        },
+        {
+          "sys_vendor": "Microsoft Corporation",
+          "product_name": "Surface Laptop for Business 13in 1st Ed with Snapdragon"
+        }
+      ],
+      "packages": [
+        "linux-firmware-qcom",
+        "qcom-firmware-extract",
+        "vulkan-freedreno"
+      ],
+      "kernel_cmdline": [
+        "clk_ignore_unused",
+        "pd_ignore_unused",
+        "arm64.nopauth"
+      ]
     }
   ]
 }

@@ -1,0 +1,28 @@
+{
+  "type": "devicetree",
+  "name": "qcom/x1p42100-microsoft-surface-laptop-13.dtb",
+  "compatible": "microsoft,surface-laptop-13-2095",
+  "hwids": [
+    "0cabb8ba-0de4-5cae-be5a-a57e25ec2630",
+    "1f573420-4c60-5331-9883-f1513a82f126",
+    "21f18d1f-8537-5b70-a85d-86fb6c889aa7",
+    "2835745c-349a-5994-95d8-2b92658f0638",
+    "3ab1854e-11a7-5e4d-b264-5a95ad00598f",
+    "3ca5eafa-f9f3-5d53-8deb-cce479dc9328",
+    "66a91dc3-f343-5158-aca6-cda2b8948d86",
+    "6d7f6d20-03ca-5965-af84-890673d1d28e",
+    "70229e12-49e4-5f0b-8f99-29c0ddc6e44d",
+    "8191f6eb-4a19-58f4-863c-c865f558b17e",
+    "870140c3-ca7b-5490-82e4-b366d9f60c43",
+    "93548bd4-41b2-5752-bf11-377a284e54a9",
+    "973d632c-fff4-57cd-9d1c-ee83e9a33fb2",
+    "97b3dd55-1865-5240-b44d-435061fdcdf5",
+    "991e3d25-3f01-58aa-abb3-777f383a65df",
+    "a0c8b094-1ff7-523b-98a3-2168e02d29a5",
+    "aca387a9-183e-5da9-8f9d-f460c3f50f54",
+    "ca2e5189-1d32-509f-88a0-d4ebcc721899",
+    "cc0aea32-ad2c-5013-8bed-cede6be8c9f4",
+    "e9fe61d2-a4ea-580b-b38d-74b4e62a1483",
+    "f8e1be35-e8e7-576e-a14c-af59806a8812"
+  ]
+}

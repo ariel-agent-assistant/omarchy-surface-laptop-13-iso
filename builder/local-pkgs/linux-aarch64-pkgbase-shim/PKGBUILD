@@ -1,0 +1,15 @@
+pkgname=linux-aarch64-pkgbase-shim
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='pkgbase metadata shim for Arch Linux ARM linux-aarch64 (mkinitcpio/Limine)'
+arch=('aarch64')
+url='https://github.com/omacom-io/omarchy-iso'
+license=('MIT')
+depends=('linux-aarch64')
+install=shim.install
+
+package() {
+  install -dm755 "$pkgdir/usr/share/doc/$pkgname"
+  echo 'Ships /usr/lib/modules/<kver>/pkgbase for linux-aarch64 via .INSTALL.' \
+    > "$pkgdir/usr/share/doc/$pkgname/README"
+}

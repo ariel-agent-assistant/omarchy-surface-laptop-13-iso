@@ -1,0 +1,89 @@
+name: Surface Laptop 13 aarch64 ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 330
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: true
+
+      - name: Runner facts
+        run: |
+          set -x
+          uname -a
+          nproc
+          free -h
+          df -h
+          docker version --format '{{.Server.Version}}'
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        continue-on-error: true
+
+      - name: Build ISO
+        run: |
+          start=$(date +%s)
+          ./bin/omarchy-iso-make --edge --keep-pkg-cache --no-boot-offer --arch aarch64 --media-target aarch64/snapdragon
+          echo "ISO build wall-clock: $(( $(date +%s) - start ))s"
+
+      - name: Inspect ISO
+        run: |
+          sudo apt-get install -y -qq xorriso >/dev/null
+          ls -l release/
+          for iso in release/*.iso; do
+            echo "== $iso"
+            sha256sum "$iso" | tee release/checksums.txt
+            xorriso -indev "$iso" -lsl /arch/boot/aarch64/ 2>/dev/null
+            xorriso -indev "$iso" -ls /arch/boot/aarch64/omarchy-live.efi \
+              || { echo "ISO is missing the DTB-carrying live UKI" >&2; exit 1; }
+            xorriso -indev "$iso" -ls /arch/boot/aarch64/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb \
+              || { echo "ISO is missing the Surface Laptop 13 DTB" >&2; exit 1; }
+          done
+          df -h
+
+      - name: Split ISO into release-sized parts
+        run: |
+          set -e
+          iso=$(ls release/*.iso)
+          base=$(basename "$iso" .iso)
+          size=$(stat -c %s "$iso")
+          echo "ISO size: $size"
+          if (( size > 1900000000 )); then
+            split -b 1900m -d -a 2 "$iso" "release/${base}.part"
+            rm "$iso"
+            ls -l release/
+          fi
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: omarchy-surface-laptop-13-aarch64-${{ github.run_number }}
+          path: ./release/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: surface-v${{ github.run_number }}
+          name: Omarchy aarch64 ISO for Surface Laptop 13 (build ${{ github.run_number }})
+          body: |
+            Experimental Omarchy (dragon branch) aarch64/snapdragon installer ISO with
+            Microsoft Surface Laptop 13 (SKU 2095, Snapdragon X Plus X1P42100) support.
+            If the ISO is split into .partNN files, reassemble with:
+            cat omarchy-*.part* > omarchy.iso
+          files: release/*
+          fail_on_unmatched_files: true

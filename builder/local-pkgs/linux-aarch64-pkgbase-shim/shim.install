@@ -1,0 +1,18 @@
+shim_write() {
+  local d
+  for d in /usr/lib/modules/*/; do
+    [[ -d $d ]] || continue
+    if [[ ! -e ${d}pkgbase ]]; then
+      echo linux-aarch64 > "${d}pkgbase"
+      echo "pkgbase-shim: wrote ${d}pkgbase"
+    fi
+  done
+}
+
+post_install() {
+  shim_write
+}
+
+post_upgrade() {
+  shim_write
+}

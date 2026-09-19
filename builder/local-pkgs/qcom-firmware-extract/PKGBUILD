@@ -1,0 +1,14 @@
+pkgname=qcom-firmware-extract
+pkgver=20260919
+pkgrel=1
+pkgdesc='Extract Qualcomm firmware from a Windows installation (upstream Srinivas-Kandagatla script)'
+arch=('any')
+url='https://github.com/Srinivas-Kandagatla/qcom-firmware-extract'
+license=('BSD-3-Clause')
+depends=('bash')
+source=('qcom-firmware-extract')
+sha256sums=('SKIP')
+
+package() {
+  install -Dm755 qcom-firmware-extract "$pkgdir/usr/bin/qcom-firmware-extract"
+}

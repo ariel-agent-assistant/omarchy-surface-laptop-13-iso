@@ -1,0 +1,232 @@
+#!/bin/bash
+
+set -e
+set -u
+
+WIN_FW_PATH="Windows/System32/DriverStore/FileRepository"
+
+search_path=""
+while getopts ":d:" opt; do
+	case ${opt} in
+		d)
+			search_path="${OPTARG}"
+			;;
+		?)
+			exit 1
+			;;
+	esac
+done
+
+device_model="$(tr -d '\0' </proc/device-tree/model)"
+case "$device_model" in
+	"Acer Swift 14 AI (SF14-11)")
+		device_path="x1e80100/ACER/SF14-11"
+		yaml_path="hexagon-dsp-binaries-ACER-SF14-11.yaml"
+		;;
+	"Acer Swift Go 14 AI (SFG14-01)")
+		device_path="x1p42100/ACER/SFG14-01"
+		yaml_path="hexagon-dsp-binaries-ACER-SFG14-01.yaml"
+		;;
+	"ASUS Vivobook S 15")
+		device_path="x1e80100/ASUSTeK/vivobook-s15"
+		yaml_path="hexagon-dsp-binaries-ASUSTeK-vivobook-s15.yaml"
+		;;
+	"ASUS Zenbook A14 (UX3407QA)"|"ASUS Zenbook A14 (UX3407QA, LCD)"|"ASUS Zenbook A14 (UX3407QA, OLED)")
+		device_path="x1p42100/ASUSTeK/zenbook-a14"
+		yaml_path="hexagon-dsp-binaries-ASUSTeK-zenbook-a14.yaml"
+		;;
+	"ASUS Zenbook A14 (UX3407RA)")
+		device_path="x1e80100/ASUSTeK/zenbook-a14"
+		yaml_path="hexagon-dsp-binaries-ASUSTeK-zenbook-a14.yaml"
+		;;
+	"Dell Inspiron 14 Plus 7441")
+		device_path="x1e80100/dell/inspiron-14-plus-7441"
+		yaml_path="hexagon-dsp-binaries-dell-inspiron-14-plus-7441.yaml"
+		;;
+	"Dell Latitude 7455")
+		device_path="x1e80100/dell/latitude-7455"
+		yaml_path="hexagon-dsp-binaries-dell-latitude-7455.yaml"
+		;;
+	"Dell XPS 13 9345")
+		device_path="x1e80100/dell/xps13-9345"
+		yaml_path="hexagon-dsp-binaries-dell-xps13-9345.yaml"
+		;;
+	"HP EliteBook 6 G1q"*)
+		device_path="x1p42100/hp/elitebook-6-g1q"
+		yaml_path="hexagon-dsp-binaries-hp-elitebook-6-g1q.yaml"
+		;;
+	"HP EliteBook Ultra G1q")
+		device_path="x1e80100/hp/elitebook-ultra-g1q"
+		yaml_path="hexagon-dsp-binaries-hp-elitebook-ultra-g1q.yaml"
+		;;
+	"HP Omnibook X 14")
+		device_path="x1e80100/hp/omnibook-x14"
+		yaml_path="hexagon-dsp-binaries-hp-omnibook-x14.yaml"
+		;;
+	"Lenovo ThinkPad T14s Gen 6 (OLED)")
+		device_path="x1e80100/LENOVO/21N1"
+		yaml_path="hexagon-dsp-binaries-LENOVO-21N1.yaml"
+		;;
+	"Lenovo ThinkPad T14s Gen 6 (LCD)")
+		device_path="x1e80100/LENOVO/21N1"
+		yaml_path="hexagon-dsp-binaries-LENOVO-21N1.yaml"
+		;;
+	"Lenovo Yoga Slim 7x")
+		device_path="x1e80100/LENOVO/83ED"
+		yaml_path="hexagon-dsp-binaries-LENOVO-83ED.yaml"
+		;;
+	"Microsoft Surface Laptop 7 (13.8 inch)"|"Microsoft Surface Laptop 7 (15 inch)")
+		device_path="x1e80100/microsoft/Romulus"
+		yaml_path="hexagon-dsp-binaries-microsoft-Romulus.yaml"
+		;;
+	"Microsoft Surface Pro 11th Edition (LCD)"|"Microsoft Surface Pro 11th Edition (OLED)")
+		device_path="qcom/x1e80100/microsoft/Denali"
+		yaml_path="hexagon-dsp-binaries-microsoft-Denali.yaml"
+		;;
+	"Samsung Galaxy Book4 Edge")
+		device_path="x1e80100/SAMSUNG/galaxy-book4-edge"
+		yaml_path="hexagon-dsp-binaries-SAMSUNG-galaxy-book4-edge.yaml"
+		;;
+	*)
+		printf "error: Device is currently not supported\n" >&2
+		exit 1
+		;;
+esac
+
+device_canonical=$(echo "$device_path" | \
+  tr '[:upper:]' '[:lower:]' | tr -d '-' | tr '/' '-')
+
+tmpdir="$(mktemp -p /tmp -d fwfetch.XXXXXXXX)"
+mkdir -p "$tmpdir/dislocker"
+mkdir -p "$tmpdir/mnt"
+touch  "$tmpdir/LOG"
+
+function cleanup {
+	local rc=$?
+	set +e
+	cd /
+	test $rc -eq 0 || cat "$tmpdir/LOG" >&2
+	umount -qRf "$tmpdir/mnt"
+	umount -qRf "$tmpdir/dislocker"
+	rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+
+# Find BitLocker Partition on NVME
+part=$(lsblk -l -o NAME,FSTYPE | grep nvme0n1 | grep BitLocker | cut -d" " -f1)
+
+# If we cant find a non-bitlocker'd part, pick the first ntfs part and try to mount
+nobitlocker=0
+if [ -z "$part" ]; then
+	part=$(lsblk -l -o NAME,FSTYPE | grep -E -m 1 "(^nvme[0-9]n[0-9]p[0-9]{1,2}\s+ntfs$)" | cut -d" " -f1)
+	nobitlocker=1
+fi
+
+if [ -z "$part" ]; then
+	printf "error: Failed to find windows partition" >&2
+	exit 1
+fi
+
+if [ -z "$search_path" ]; then
+	echo "Mounting Windows partition ${part}..."
+	# Decrypt and mount
+	if [ "$nobitlocker" -eq 0 ]; then
+		dislocker --readonly "/dev/$part" -- "$tmpdir/dislocker"
+		mount -t ntfs-3g -oloop,ro "$tmpdir/dislocker/dislocker-file" "$tmpdir/mnt"
+	fi
+	if [ "$nobitlocker" -eq 1 ]; then
+		mount -t ntfs-3g -o ro "/dev/$part" "$tmpdir/mnt"
+	fi
+	search_path="${tmpdir}/mnt/${WIN_FW_PATH}"
+fi
+
+# Create Package boilerplate
+pkgver="$(date +'%Y%m%d')"
+pkgname="qcom-x1e-firmware-extracted-${device_canonical}_${pkgver}_arm64"
+pkgpath="${tmpdir}/${pkgname}"
+mkdir -p "${pkgpath}"
+mkdir -p "${pkgpath}/DEBIAN"
+mkdir -p "${pkgpath}/usr/lib/firmware/updates/qcom/${device_path}"
+mkdir -p "${pkgpath}/usr/share/qcom/conf.d"
+
+# Create Yaml file for this device.
+cat > "${pkgpath}/usr/share/qcom/conf.d/$yaml_path" <<EOF
+# SPDX-License-Identifier: MIT
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+
+machines:
+  ${device_model}:
+    DSP_LIBRARY_PATH: ${device_path}/dsp
+EOF
+mkdir -p "${pkgpath}/usr/share/qcom/${device_path}/dsp/cdsp"
+
+cat <<EOF> "${pkgpath}/DEBIAN/control"
+Package: qcom-x1e-firmware-extracted-${device_canonical}
+Version: ${pkgver}
+Architecture: arm64
+Breaks: qcom-x1e-firmware-extracted
+Replaces: qcom-x1e-firmware-extracted
+Conflicts: qcom-x1e-firmware-extracted
+Maintainer: Tobias Heider <me@tobhe.de>
+Description: Extracted Snapdragon X Elite firmware for ${device_model}
+ This package is automatically generated and includes firmware
+ files extracted from a local Windows installation.
+EOF
+cd "${tmpdir}"
+
+# Extract FW files
+fw_files="adsp_dtbs.elf
+adspr.jsn
+adsps.jsn
+adspua.jsn
+battmgr.jsn
+cdsp_dtbs.elf
+cdspr.jsn
+qcadsp8380.mbn
+qccdsp8380.mbn
+qcdxkmsuc8380.mbn
+qcdxkmsucpurwa.mbn"
+
+echo "Extracting firmware from $search_path"
+for f_path in ${fw_files}; do
+	echo -e "\t${f_path}"
+	fw_path="$(find "${search_path}" -name "${f_path}" -exec ls -t {} + | head -n1)"
+	if [ -e "${fw_path}" ] ; then
+		cp "${fw_path}" "${pkgpath}/usr/lib/firmware/updates/qcom/${device_path}/"
+	fi
+done
+chmod 0644 "${pkgpath}/usr/lib/firmware/updates/qcom/${device_path}"/*
+
+# Extract fastrpc libraries
+
+cdsp_skel_files="fastrpc_shell_3
+fastrpc_shell_unsigned_3
+libc++abi.so.1
+libc++.so.1
+libsysmondomain_skel.so
+libsysmonhvxthrottle_skel.so
+libsysmon_skel.so
+libsysmonquery_skel.so"
+
+echo "Extracting Hexagon Skel files from $search_path"
+for f_path in ${cdsp_skel_files}; do
+	echo -e "\t${f_path}"
+	fw_path="$(find "${search_path}" -name "${f_path}" -exec ls -t {} + | head -n1)"
+	if [ -e "${fw_path}" ] ; then
+		cp "${fw_path}" "${pkgpath}/usr/share/qcom/${device_path}/dsp/cdsp"
+	fi
+done
+chmod 0644 "${pkgpath}/usr/share/qcom/${device_path}/dsp/cdsp/"*
+
+echo "Building package ${pkgname}..."
+
+# Pack and install
+dpkg-deb --build "${pkgname}" >> "${tmpdir}/LOG"
+
+echo "Installing ${pkgname}..."
+DEBIAN_FRONTEND=noninteractive apt-get install \
+    --reinstall -f -y "./${pkgname}.deb" >> "${tmpdir}/LOG"
+
+update-initramfs -kall -u
+
+echo -e "$(tput bold)Done! Reboot to load the added firmware files. $(tput sgr0)"
