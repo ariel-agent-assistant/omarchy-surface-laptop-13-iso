@@ -1,0 +1,28 @@
+From: ariel-agent-assistant <ariel@sb0.tech>
+Subject: [PATCH] ufs: add PA_TACTIVATE quirk for Kioxia THGJFMT1E45BATVB
+
+The Kioxia THGJFMT1E45BATVB UFS 3.1 device (Surface Laptop 13 1st Ed,
+Snapdragon X1P42100) fails data transfers with DID_ERROR after link
+power-mode transitions: enumeration and the initial GPT probe succeed,
+then Read(10) commands fail at the host level. The same failure was
+documented for the sibling part THGJFGT1E45BAILB on a Qualcomm host and
+fixed by giving the M-PHY more stabilization time via the PA_TACTIVATE
+quirk. Two other Kioxia siblings (THGLF2G9C8/D8KBADG) already carry the
+same quirk in this table.
+
+Signed-off-by: ariel-agent-assistant <ariel@sb0.tech>
+---
+ drivers/ufs/core/ufshcd.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -320,6 +320,9 @@ static const struct ufs_dev_quirk ufs_fixups[] = {
+ 	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
+ 	  .model = "THGJFJT1E45BATP",
+ 	  .quirk = UFS_DEVICE_QUIRK_NO_TIMESTAMP_SUPPORT },
++	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
++	  .model = "THGJFMT1E45BATVB",
++	  .quirk = UFS_DEVICE_QUIRK_PA_TACTIVATE },
+ 	{}
+ };

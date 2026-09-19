@@ -79,7 +79,8 @@
       "kernel_cmdline": [
         "clk_ignore_unused",
         "pd_ignore_unused",
-        "arm64.nopauth"
+        "arm64.nopauth",
+        "ufshcd_core.use_mcq_mode=0"
       ]
     }
   ]
