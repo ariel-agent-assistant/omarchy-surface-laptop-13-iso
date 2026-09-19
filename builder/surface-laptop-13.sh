@@ -5,7 +5,7 @@
 set -euo pipefail
 
 build_cache_dir=$1
-[[ -n ${PACMAN_ONLINE_CONF:-} ]] || { echo "surface13: PACMAN_ONLINE_CONF unset" >&2; exit 1; }
+PACMAN_ONLINE_CONF=${2:?surface13: usage: surface-laptop-13.sh <build_cache_dir> <pacman-online-conf>}
 
 # 1. Compile and stage the board DTB with the kernel's own DTBs. live-uki.sh
 #    embeds every /boot/dtbs/qcom/x1*.dtb into the live UKI, and the patched

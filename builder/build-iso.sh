@@ -203,7 +203,7 @@ if [[ $ISO_ARCH == aarch64 ]]; then
   python /configs/airootfs/usr/share/omarchy-iso/orchestrator/hardware.py \
     /configs/aarch64/platforms.json "$OMARCHY_MEDIA_TARGET" > /tmp/platform.packages
   if [[ $OMARCHY_MEDIA_TARGET == aarch64/snapdragon ]]; then
-    bash /builder/surface-laptop-13.sh "$build_cache_dir"
+    bash /builder/surface-laptop-13.sh "$build_cache_dir" "$PACMAN_ONLINE_CONF"
   fi
   # The T2 kernel image is absent on aarch64.
   rm -f "$build_cache_dir/airootfs/etc/mkinitcpio.d/linux-t2.preset"
