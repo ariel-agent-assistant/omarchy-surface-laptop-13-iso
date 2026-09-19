@@ -1,0 +1,25 @@
+# Board support files for the installed system: the Surface Laptop 13 (2095)
+# device tree and the systemd-stub hardware IDs that let the UKI select it.
+# The live ISO stages these into airootfs; this package carries them onto the
+# target so the installed system boots the same way the live one did.
+pkgname=surface-laptop-13-support
+pkgver=1.0.1
+pkgrel=1
+epoch=1
+pkgdesc='Surface Laptop 13 (Snapdragon X1P42100) DTB + systemd-stub hwids'
+arch=('any')
+license=('MIT')
+makedepends=('dtc')
+source=('surface-laptop-13-typec.dts' 'x1p42100-microsoft-surface-laptop-13.json')
+sha256sums=('SKIP' 'SKIP')
+
+build() {
+  dtc -O dtb -o x1p42100-microsoft-surface-laptop-13.dtb surface-laptop-13-typec.dts
+}
+
+package() {
+  install -Dm644 x1p42100-microsoft-surface-laptop-13.dtb \
+    "$pkgdir/boot/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb"
+  install -Dm644 x1p42100-microsoft-surface-laptop-13.json \
+    "$pkgdir/usr/lib/systemd/boot/hwids/aa64/x1p42100-microsoft-surface-laptop-13.json"
+}

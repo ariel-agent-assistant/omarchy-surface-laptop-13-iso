@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Snapdragon/ARM firmware (Surface, current Qualcomm laptops) exposes no EFI
+# runtime variable services to the OS, so efibootmgr can never register a
+# boot entry: install Limine to the UEFI removable-media fallback path instead.
+if [[ $(uname -m) == aarch64 ]]; then
+  bootloader_removable=true
+else
+  bootloader_removable=false
+fi
+
 # On the live ISO, .automated_script.sh exports OMARCHY_PATH and the package
 # targets before running us. The defaults keep bin/omarchy-iso-configurator
 # dry runs working outside the ISO.
@@ -850,7 +859,7 @@ run_partition_execute() {
     "archinstall-language": "English",
     "auth_config": {},
     "audio_config": { "audio": "pipewire" },
-    "bootloader_config": { "bootloader": "Limine", "uki": false, "removable": false },
+    "bootloader_config": { "bootloader": "Limine", "uki": false, "removable": $bootloader_removable },
     "custom_commands": [],
     "omarchy_install": {
         "mode": "protected",
@@ -1186,7 +1195,7 @@ cat <<-_EOF_ >user_configuration.json
     "archinstall-language": "English",
     "auth_config": {},
     "audio_config": { "audio": "pipewire" },
-    "bootloader_config": { "bootloader": "Limine", "uki": false, "removable": false },
+    "bootloader_config": { "bootloader": "Limine", "uki": false, "removable": $bootloader_removable },
     "custom_commands": [],
     "omarchy_install": {
         "mode": "full_disk",

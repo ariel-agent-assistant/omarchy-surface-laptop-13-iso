@@ -461,6 +461,10 @@ def _install_limine_efi(
     hook_command = f"/usr/bin/cp /usr/share/limine/{source_name} {target_path}"
     _write_limine_pacman_hook(ctx.target, hook_command)
 
+    if removable:
+        # Firmware without EFI runtime variable services (Snapdragon laptops)
+        # boots the removable fallback path directly; efibootmgr would fail.
+        return
     loader = "\\" + str(Path(esp_path) / efi_binary).strip("/").replace("/", "\\")
     _register_limine_efi_entry(disk, part, loader, pre_state=pre_state)
 

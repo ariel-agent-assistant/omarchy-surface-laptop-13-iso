@@ -62,7 +62,7 @@ for pkg in omarchy-settings-dev omarchy-dev; do
   built=1
 done
 
-for pkg in linux-aarch64-pkgbase-shim qcom-firmware-extract; do
+for pkg in surface-laptop-13-support linux-aarch64-pkgbase-shim qcom-firmware-extract; do
   if have_package "$pkg"; then
     echo "surface13: $pkg available from synced repositories"
     continue
@@ -93,7 +93,7 @@ if (( built )); then
   fi
   # Re-sync so the new repo is visible to the offline-mirror transaction.
   pacman --config "$PACMAN_ONLINE_CONF" --dbpath /tmp/surface13-probedb -Sy >/dev/null
-  for pkg in linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings-dev omarchy-dev; do
+  for pkg in surface-laptop-13-support linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings-dev omarchy-dev; do
     have_package "$pkg" || { echo "surface13: $pkg STILL unresolvable" >&2; exit 1; }
   done
   echo "surface13: local repo ready at $local_repo"
