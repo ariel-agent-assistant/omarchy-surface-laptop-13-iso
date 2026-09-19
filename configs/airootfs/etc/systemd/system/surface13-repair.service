@@ -1,0 +1,16 @@
+[Unit]
+Description=Surface Laptop 13 unattended post-install repair
+Conflicts=getty@tty1.service
+After=getty@tty1.service multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/surface13-repair.sh
+StandardInput=null
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+
+[Install]
+WantedBy=multi-user.target
