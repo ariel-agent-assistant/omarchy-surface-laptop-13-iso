@@ -12,12 +12,12 @@ PACMAN_ONLINE_CONF=${2:?surface13: usage: surface-laptop-13.sh <build_cache_dir>
 #    mkarchiso copies the tree into the ISO for the GRUB devicetree entry.
 install -d "$build_cache_dir/airootfs/boot/dtbs/qcom"
 dtb="$build_cache_dir/airootfs/boot/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb"
-dtc -O dtb -o "$dtb" /builder/dtbs/surface-laptop-13-typec.dts
+dtc -O dtb -o "$dtb" /configs/aarch64/dtbs/surface-laptop-13-typec.dts
 echo "surface13: staged $(stat -c %s "$dtb") byte DTB"
 
 # 2. systemd-stub selects a .dtbauto entry through the .hwids section; the JSON
 #    maps the laptop's SMBIOS CHIDs to the DTB's compatible string.
-install -Dm644 /builder/hwids/x1p42100-microsoft-surface-laptop-13.json \
+install -Dm644 /configs/aarch64/hwids/x1p42100-microsoft-surface-laptop-13.json \
   "$build_cache_dir/airootfs/usr/lib/systemd/boot/hwids/aa64/x1p42100-microsoft-surface-laptop-13.json"
 echo "surface13: staged systemd-stub hwids"
 
