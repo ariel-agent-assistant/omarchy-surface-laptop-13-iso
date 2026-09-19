@@ -46,9 +46,13 @@ jobs:
             echo "== $iso"
             sha256sum "$iso" | tee release/checksums.txt
             xorriso -indev "$iso" -lsl /arch/boot/aarch64/ 2>/dev/null
-            xorriso -indev "$iso" -ls /arch/boot/aarch64/omarchy-live.efi \
-              || { echo "ISO is missing the DTB-carrying live UKI" >&2; exit 1; }
-            xorriso -indev "$iso" -ls /arch/boot/aarch64/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb \
+            # xorriso warns on missing paths but still exits 0: grep the output.
+            out=$(xorriso -indev "$iso" -ls /arch/boot/aarch64/omarchy-live.efi 2>&1)
+            echo "$out"
+            grep -q "omarchy-live.efi'" <<< "$out"               || { echo "ISO is missing the DTB-carrying live UKI" >&2; exit 1; }
+            out=$(xorriso -indev "$iso" -ls /arch/boot/aarch64/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb 2>&1)
+            echo "$out"
+            grep -q "x1p42100-microsoft-surface-laptop-13.dtb'" <<< "$out" \
               || { echo "ISO is missing the Surface Laptop 13 DTB" >&2; exit 1; }
           done
           df -h

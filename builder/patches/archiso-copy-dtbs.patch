@@ -3,12 +3,10 @@ Applies after archiso-copy-boot-efi.patch (its UKI loop is the context).
 
 --- a/archiso/mkarchiso
 +++ b/archiso/mkarchiso
-@@ -438,6 +438,13 @@
-     for _uki in "${pacstrap_dir}/boot/"*.efi; do
-         [[ -e "${_uki}" ]] || continue
+@@ -442,6 +442,12 @@
          install -m 0644 -- "${_uki}" "${isofs_dir}/${install_dir}/boot/${arch}/"
      done
-+
+ 
 +    # Device trees staged into /boot/dtbs travel with the kernel so a GRUB
 +    # menu entry can pick one explicitly with the devicetree command.
 +    if [[ -d "${pacstrap_dir}/boot/dtbs" ]]; then
