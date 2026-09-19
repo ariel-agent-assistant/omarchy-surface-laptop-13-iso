@@ -80,13 +80,16 @@ done
 
 if (( built )); then
   repo-add "$local_repo/omarchy-local.db.tar.gz" "$local_repo"/*.pkg.tar.*
+  # Pacman picks the FIRST configured repo containing a package name for
+  # unversioned sync targets, so the local repo must lead the config.
   if ! grep -q '^\[omarchy-local\]' "$PACMAN_ONLINE_CONF"; then
-    cat >> "$PACMAN_ONLINE_CONF" <<'CONF'
-
-[omarchy-local]
-SigLevel = Never
-Server = file:///var/cache/omarchy-local
-CONF
+    tmp_conf=$(mktemp)
+    {
+      printf '[omarchy-local]\nSigLevel = Never\nServer = file:///var/cache/omarchy-local\n\n'
+      cat "$PACMAN_ONLINE_CONF"
+    } > "$tmp_conf"
+    cat "$tmp_conf" > "$PACMAN_ONLINE_CONF"
+    rm -f "$tmp_conf"
   fi
   # Re-sync so the new repo is visible to the offline-mirror transaction.
   pacman --config "$PACMAN_ONLINE_CONF" --dbpath /tmp/surface13-probedb -Sy >/dev/null
