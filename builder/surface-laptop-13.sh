@@ -40,7 +40,28 @@ fi
 echo 'builder ALL=(ALL) NOPASSWD: /usr/bin/pacman' > /etc/sudoers.d/99-omarchy-pkg-builder
 chmod 440 /etc/sudoers.d/99-omarchy-pkg-builder
 
+# The Snapdragon gate (check-arm-packages.sh) requires ARM boot configuration
+# and Qualcomm install scripts that only exist in omacom/omarchy's dragon
+# branch; the published channels build from quattro and the pkgs PKGBUILD
+# strips those files on aarch64. Build both omarchy packages from dragon
+# source with the vendored PKGBUILDs (epoch=1 outranks the published builds).
+dragon_src=/tmp/omarchy-dragon-src
+rm -rf "$dragon_src"
+git clone --depth 1 --branch dragon https://github.com/omacom/omarchy "$dragon_src" >/dev/null
+
 built=0
+for pkg in omarchy-settings-dev omarchy-dev; do
+  echo "surface13: building $pkg from omacom/omarchy@dragon"
+  src="/builder/local-pkgs/$pkg"
+  work="/tmp/surface13-pkg-$pkg"
+  rm -rf "$work"
+  cp -r "$src" "$work"
+  chown -R builder:builder "$work"
+  (cd "$work" && sudo -u builder     OMARCHY_SRC="$dragon_src" OMARCHY_SNAPDRAGON_KEEP_BOOT_CONF=1     makepkg --noconfirm --nodeps --skippgpcheck --skipchecksums -f)
+  cp "$work"/$pkg-*.pkg.tar.* "$local_repo/"
+  built=1
+done
+
 for pkg in linux-aarch64-pkgbase-shim qcom-firmware-extract; do
   if have_package "$pkg"; then
     echo "surface13: $pkg available from synced repositories"
@@ -69,7 +90,7 @@ CONF
   fi
   # Re-sync so the new repo is visible to the offline-mirror transaction.
   pacman --config "$PACMAN_ONLINE_CONF" --dbpath /tmp/surface13-probedb -Sy >/dev/null
-  for pkg in linux-aarch64-pkgbase-shim qcom-firmware-extract; do
+  for pkg in linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings-dev omarchy-dev; do
     have_package "$pkg" || { echo "surface13: $pkg STILL unresolvable" >&2; exit 1; }
   done
   echo "surface13: local repo ready at $local_repo"
