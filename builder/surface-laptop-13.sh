@@ -25,7 +25,7 @@ echo "surface13: staged systemd-stub hwids"
 #    serve them from a file:// repo appended to the online pacman config so
 #    they land in the offline mirror like any published package.
 local_repo=/var/cache/omarchy-local
-mkdir -p "$local_repo"
+mkdir -p "$local_repo" /tmp/surface13-probedb
 
 have_package() {
   pacman --config "$PACMAN_ONLINE_CONF" --dbpath /tmp/surface13-probedb \
