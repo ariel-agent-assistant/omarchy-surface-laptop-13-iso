@@ -27,9 +27,6 @@ source=("https://www.kernel.org/pub/linux/kernel/v7.x/${_srcname}.tar.xz"
         '0007-drm-panel-edp-recognize-lgd-07ad.patch'
         '0008-drm-keep-surface-edp-active-on-blank.patch'
         'config'
-        'generate_chromebook_its.sh'
-        'kernel.keyblock'
-        'kernel_data_key.vbprivk'
         'linux.preset')
 md5sums=('381ae4b20294dcf4b8f63f1fd1bb7017'
          'f68ab72fe3dcfe04408f24083b5fedc6'
@@ -42,9 +39,6 @@ md5sums=('381ae4b20294dcf4b8f63f1fd1bb7017'
          'SKIP'
          'SKIP'
          'SKIP'
-         '7c97cf141750ad810235b1ad06eb9f75'
-         '61c5ff73c136ed07a7aadbf58db3d96a'
-         '584777ae88bce2c5659960151b64c7d8'
          'f82b1a5732c416762bbc88e00b1a4b15')
 
 prepare() {
@@ -268,7 +262,7 @@ _package-chromebook() {
   cp vmlinux.kpart "${pkgdir}/boot"
 }
 
-pkgname=("${pkgbase}" "${pkgbase}-headers" "${pkgbase}-chromebook")
+pkgname=("${pkgbase}" "${pkgbase}-headers")
 for _p in ${pkgname[@]}; do
   eval "package_${_p}() {
     _package${_p#${pkgbase}}
