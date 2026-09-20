@@ -71,7 +71,7 @@ jobs:
           unsquashfs -ll "$work/airootfs.sfs" > "$listing"
           require() { grep -q "$1" "$listing" || { echo "airootfs is missing: $1" >&2; exit 1; }; }
           require '/usr/local/bin/surface13-selfcheck$'
-          require '/etc/systemd/system/multi-user.target.wants/sshd.service$'
+          require '/etc/systemd/system/multi-user.target.wants/sshd.service'   # symlink: unsquashfs -ll appends ' -> target', no $ anchor
           require '/etc/systemd/network/10-surface13-wired.network$'
           require '/boot/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb$'
           # Offline mirror packages whose absence previously broke installs.
