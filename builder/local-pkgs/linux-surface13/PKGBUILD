@@ -24,6 +24,8 @@ source=("https://www.kernel.org/pub/linux/kernel/v7.x/${_srcname}.tar.xz"
         '0004-serial-amba-pl011-add-arm-pl011-axi-binding-for-RP1.patch'
         '0005-arm64-dts-rpi5-add-RP1-UART0-GPIO14-15-console.patch'
         '0006-ufs-add-pa-tactivate-quirk-for-kioxia-thgjfmt1e45batvb.patch'
+        '0007-drm-panel-edp-recognize-lgd-07ad.patch'
+        '0008-drm-keep-surface-edp-active-on-blank.patch'
         'config'
         'generate_chromebook_its.sh'
         'kernel.keyblock'
@@ -37,7 +39,9 @@ md5sums=('381ae4b20294dcf4b8f63f1fd1bb7017'
          'a9bcf91cab44e1193240a43189a9313f'
          '24c403d3738a418a67b8c0e7659380aa'
          'SKIP'
-         'c95e51b04c91ed01f8dcd0c03a5397af'
+         'SKIP'
+         'SKIP'
+         'SKIP'
          '7c97cf141750ad810235b1ad06eb9f75'
          '61c5ff73c136ed07a7aadbf58db3d96a'
          '584777ae88bce2c5659960151b64c7d8'
@@ -63,6 +67,14 @@ prepare() {
   git apply ../0005-arm64-dts-rpi5-add-RP1-UART0-GPIO14-15-console.patch
   git apply ../0006-ufs-add-pa-tactivate-quirk-for-kioxia-thgjfmt1e45batvb.patch
 
+  # Surface Laptop 13 (2095) display bring-up patches, from the board
+  # maintainer's tree: recognize the LGD 0x07ad eDP panel, and honor the
+  # board DTB's qcom,keep-edp-active-on-blank / keep-panel-prepared-on-disable
+  # properties. Without these the panel hardware-resets ~1s after the first
+  # msm modeset and never recovers (backlight stays on, picture dead).
+  git apply ../0007-drm-panel-edp-recognize-lgd-07ad.patch
+  git apply ../0008-drm-keep-surface-edp-active-on-blank.patch
+
   cat "${srcdir}/config" > ./.config
 }
 
@@ -72,6 +84,20 @@ build() {
   # get kernel version
   make prepare
   make -s kernelrelease > version
+
+  # The display fix only works with the eDP takeover path built into the
+  # Image. olddefconfig (via make prepare) can silently revert these to =m
+  # when a dependency flips, so assert the final state instead of trusting
+  # the shipped config. QCOM_OCMEM=y is load-bearing: DRM_MSM depends on
+  # (QCOM_OCMEM || QCOM_OCMEM=n), so OCMEM=m quietly demotes MSM back to =m.
+  for sym in CONFIG_DRM_MSM CONFIG_DRM_PANEL_EDP CONFIG_PHY_QCOM_EDP CONFIG_QCOM_OCMEM; do
+    if ! grep -q "^${sym}=y$" .config; then
+      echo "linux-surface13: ${sym} did not survive olddefconfig as =y" >&2
+      grep -E "^${sym}=|# ${sym} is not set" .config >&2 || true
+      exit 1
+    fi
+  done
+  echo "linux-surface13: display path verified built-in (MSM/PANEL_EDP/PHY_EDP/OCMEM all =y)"
 
   # build!
   unset LDFLAGS

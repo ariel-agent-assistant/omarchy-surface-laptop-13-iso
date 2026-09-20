@@ -62,6 +62,23 @@ for pkg in omarchy-settings-dev omarchy-dev; do
   built=1
 done
 
+# The display-fixed kernel is the whole point of this media: 7.2.6 with the
+# UFS Kioxia quirk, the LGD-07AD panel entry, the keep-eDP-alive patch, and
+# the eDP takeover path built INTO the Image (not modules behind LUKS). Its
+# pkgbase is linux-aarch64 with epoch=1, so every downstream resolution
+# (live ISO packages, offline mirror, target pacstrap) picks it over the
+# published kernel without touching any package list. Built first: it is the
+# long pole (~40-60 min on the CI runner).
+echo "surface13: building linux-surface13 (patched linux-aarch64, epoch-pinned)"
+src="/builder/local-pkgs/linux-surface13"
+work="/tmp/surface13-pkg-linux-surface13"
+rm -rf "$work"
+cp -r "$src" "$work"
+chown -R builder:builder "$work"
+(cd "$work" && sudo -u builder makepkg --noconfirm --syncdeps --skippgpcheck -f)
+cp "$work"/linux-aarch64-*.pkg.tar.* "$local_repo/"
+built=1
+
 for pkg in surface-laptop-13-support linux-aarch64-pkgbase-shim qcom-firmware-extract; do
   if have_package "$pkg"; then
     echo "surface13: $pkg available from synced repositories"
@@ -96,6 +113,13 @@ if (( built )); then
   for pkg in surface-laptop-13-support linux-aarch64-pkgbase-shim qcom-firmware-extract omarchy-settings-dev omarchy-dev; do
     have_package "$pkg" || { echo "surface13: $pkg STILL unresolvable" >&2; exit 1; }
   done
+  # The kernel must resolve to the epoch-1 local build, not the published one.
+  kver_resolved=$(pacman --config "$PACMAN_ONLINE_CONF" --dbpath /tmp/surface13-probedb -Si linux-aarch64 2>/dev/null | awk -F': ' '/^Version/{print $2; exit}')
+  rm -rf /tmp/surface13-probedb
+  case "$kver_resolved" in
+    1:7.2.6-1) echo "surface13: linux-aarch64 resolves to the patched $kver_resolved" ;;
+    *) echo "surface13: linux-aarch64 resolves to '$kver_resolved', expected 1:7.2.6-1 (patched build)" >&2; exit 1 ;;
+  esac
   echo "surface13: local repo ready at $local_repo"
 fi
 rm -rf /tmp/surface13-probedb

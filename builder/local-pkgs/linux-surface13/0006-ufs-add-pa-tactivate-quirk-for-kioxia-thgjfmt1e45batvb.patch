@@ -17,7 +17,7 @@ Signed-off-by: ariel-agent-assistant <ariel@sb0.tech>
 
 --- a/drivers/ufs/core/ufshcd.c
 +++ b/drivers/ufs/core/ufshcd.c
-@@ -320,6 +320,9 @@ static const struct ufs_dev_quirk ufs_fixups[] = {
+@@ -321,6 +321,9 @@
  	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
  	  .model = "THGJFJT1E45BATP",
  	  .quirk = UFS_DEVICE_QUIRK_NO_TIMESTAMP_SUPPORT },
@@ -26,3 +26,4 @@ Signed-off-by: ariel-agent-assistant <ariel@sb0.tech>
 +	  .quirk = UFS_DEVICE_QUIRK_PA_TACTIVATE },
  	{}
  };
+ 

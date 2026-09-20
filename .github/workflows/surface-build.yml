@@ -57,6 +57,45 @@ jobs:
           done
           df -h
 
+      - name: Verify live airootfs contents
+        run: |
+          set -e
+          sudo apt-get install -y -qq squashfs-tools >/dev/null
+          iso=$(ls release/*.iso)
+          work=/tmp/iso-verify
+          rm -rf "$work" && mkdir -p "$work"
+          # Extract the airootfs squashfs image out of the ISO.
+          xorriso -osirrox on -indev "$iso" -extract /arch/aarch64/airootfs.sfs "$work/airootfs.sfs" >/dev/null 2>&1 \
+            || xorriso -osirrox on -indev "$iso" -extract /arch/aarch64/airootfs.sfs.gz "$work/airootfs.sfs" >/dev/null
+          listing="$work/airootfs.listing"
+          unsquashfs -ll "$work/airootfs.sfs" > "$listing"
+          require() { grep -q "$1" "$listing" || { echo "airootfs is missing: $1" >&2; exit 1; }; }
+          require '/usr/local/bin/surface13-selfcheck$'
+          require '/etc/systemd/system/multi-user.target.wants/sshd.service$'
+          require '/etc/systemd/network/10-surface13-wired.network$'
+          require '/boot/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb$'
+          # Offline mirror packages whose absence previously broke installs.
+          require 'var/cache/omarchy/mirror/offline/openssh-[^/]*pkg.tar'
+          require 'var/cache/omarchy/mirror/offline/systemd-ukify-[^/]*pkg.tar'
+          require 'var/cache/omarchy/mirror/offline/surface-laptop-13-support-[^/]*pkg.tar'
+          # The kernel in the live env must be the patched epoch-1 build.
+          require 'var/cache/omarchy/mirror/offline/linux-aarch64-7.2.6-1-aarch64.pkg.tar'
+          echo "-- WCN7850 firmware inventory (warning only):"
+          grep -iE 'firmware/qcom/[^ ]*WCN7850' "$listing" | head -20 || \
+            echo "WARNING: no WCN7850 firmware paths under firmware/qcom - wifi may be degraded"
+          echo "-- UFS/Venus firmware inventory (warning only):"
+          grep -iE 'firmware/qcom/[^ ]*(venus|x1p42100|ufs)' "$listing" | head -20 || true
+          # The live kernel Image must carry the display drivers built in.
+          unsquashfs -d "$work/boot" -f "$work/airootfs.sfs" boot/vmlinuz-linux-aarch64 >/dev/null
+          if command -v zcat >/dev/null && zcat "$work/boot/boot/vmlinuz-linux-aarch64" 2>/dev/null | grep -q '7.2.6-1-aarch64-ARCH'; then
+            echo "live kernel version string verified"
+          else
+            strings "$work/boot/boot/vmlinuz-linux-aarch64" | grep -m1 'Linux version' || true
+            strings "$work/boot/boot/vmlinuz-linux-aarch64" | grep -q '7.2.6-1-aarch64-ARCH' \
+              || { echo "live kernel is NOT the patched 7.2.6-1-aarch64-ARCH build" >&2; exit 1; }
+          fi
+          echo "airootfs verification passed"
+
       - name: Split ISO into release-sized parts
         run: |
           set -e
@@ -79,15 +118,50 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Write release notes
+        run: |
+          set -e
+          {
+            echo "# Omarchy aarch64 ISO - Surface Laptop 13 (2095, Snapdragon X Plus X1P42100) - FINAL build ${{ github.run_number }}"
+            echo
+            echo "Built $(date -u +%Y-%m-%d) from omacom/omarchy@dragon with the patched display kernel"
+            echo "(7.2.6 + UFS Kioxia quirk + LGD-07AD panel + keep-eDP-alive, eDP path built INTO the Image)."
+            echo
+            echo "## SHA-256 (verify before AND after flashing)"
+            echo '```'
+            cat release/checksums.txt
+            echo '```'
+            echo "If the ISO is split into .partNN files, reassemble first:"
+            echo '```'
+            echo "cat omarchy-*.part* > omarchy.iso"
+            echo "sha256sum omarchy.iso   # must match the .iso line above"
+            echo '```'
+            echo
+            echo "## USE A FRESH USB STICK"
+            echo "The old stick's NAND is worn and silently corrupts images after many flashes."
+            echo "Flash with EtchDroid (raw DD image mode) on the Retroid, or balenaEtcher anywhere else."
+            echo "balenaEtcher verifies after flashing automatically; with dd/EtchDroid, compare the"
+            echo "SHA-256 of the reassembled image against the table above before booting it."
+            echo
+            echo "## First boot"
+            echo "1. Secure Boot stays OFF."
+            echo "2. Boot the stick. The GRUB menu defaults to the Surface entry after 5s."
+            echo "   Alternates (not defaults): VERBOSE logging, msm.modeset=0 display fallback,"
+            echo "   no-plymouth, EMERGENCY shell."
+            echo "3. At the live root shell, run: surface13-selfcheck"
+            echo "   It PASS/FAILs the DTB keep-eDP properties, built-in msm, UFS MCQ quirk,"
+            echo "   WCN7850 firmware, sshd, and networking."
+            echo "4. sshd is ON: root password surface13. iPhone tether: plug in with Personal"
+            echo "   Hotspot on (DNS is pre-baked; if it still fails: echo nameserver 1.1.1.1 > /etc/resolv.conf)."
+            echo "5. Install as usual. The installed system boots the same patched kernel via UKI"
+            echo "   (limine fallback retained) with the LUKS + btrfs layout you choose."
+          } > release/RELEASE_NOTES.md
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: surface-v${{ github.run_number }}
-          name: Omarchy aarch64 ISO for Surface Laptop 13 (build ${{ github.run_number }})
-          body: |
-            Experimental Omarchy (dragon branch) aarch64/snapdragon installer ISO with
-            Microsoft Surface Laptop 13 (SKU 2095, Snapdragon X Plus X1P42100) support.
-            If the ISO is split into .partNN files, reassemble with:
-            cat omarchy-*.part* > omarchy.iso
+          name: Omarchy aarch64 ISO for Surface Laptop 13 - FINAL (build ${{ github.run_number }})
+          body_path: release/RELEASE_NOTES.md
           files: release/*
           fail_on_unmatched_files: true

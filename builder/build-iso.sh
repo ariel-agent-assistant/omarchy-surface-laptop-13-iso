@@ -490,6 +490,27 @@ if [[ $ISO_ARCH == aarch64 ]]; then
   bash /builder/check-arm-packages.sh "$OMARCHY_MEDIA_TARGET" "$runtime_package" "$settings_package"
 fi
 
+# Offline-mirror completeness gates. Every entry here is a package whose
+# absence previously turned an offline install or recovery step into a
+# network fetch (or a dead machine): openssh (v22 rescue), systemd-ukify
+# (dtb-uki.sh installs it on-target), the patched kernel, the Surface DTB
+# package, Qualcomm firmware, and the live-env tether/recovery tooling.
+if [[ $ISO_ARCH == aarch64 ]]; then
+  for required_pkg in     openssh systemd-ukify linux-aarch64 linux-aarch64-pkgbase-shim     surface-laptop-13-support linux-firmware-qcom qcom-firmware-extract     usbmuxd libimobiledevice vulkan-freedreno; do
+    find_offline_package "$required_pkg" >/dev/null || {
+      echo "ERROR: offline mirror is incomplete: $required_pkg missing" >&2
+      exit 1
+    }
+  done
+  # The kernel in the mirror must be the epoch-1 Surface build.
+  kernel_pkg_file=$(find_offline_package linux-aarch64)
+  kernel_pkg_ver=$(pacman -Qp "$kernel_pkg_file" | awk '{print $2}')
+  case "$kernel_pkg_ver" in
+    1:7.2.6-1) echo "offline mirror: patched kernel $kernel_pkg_ver verified" ;;
+    *) echo "ERROR: offline mirror kernel is '$kernel_pkg_ver', expected 1:7.2.6-1 (patched)" >&2; exit 1 ;;
+  esac
+fi
+
 # Rebuild the offline repo db from scratch so size/checksum/depends entries
 # always reflect only the package files selected for this build.
 rm -f "$offline_mirror_dir"/offline.db* "$offline_mirror_dir"/offline.files*

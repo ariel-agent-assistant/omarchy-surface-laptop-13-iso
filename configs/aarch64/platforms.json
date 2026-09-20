@@ -75,7 +75,8 @@
         "linux-firmware-qcom",
         "qcom-firmware-extract",
         "vulkan-freedreno",
-        "surface-laptop-13-support"
+        "surface-laptop-13-support",
+        "systemd-ukify"
       ],
       "kernel_cmdline": [
         "clk_ignore_unused",

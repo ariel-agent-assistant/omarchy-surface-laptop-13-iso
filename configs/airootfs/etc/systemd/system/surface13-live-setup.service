@@ -1,0 +1,11 @@
+[Unit]
+Description=Surface Laptop 13 live-media setup (rescue root password)
+After=systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c "echo 'root:surface13' | chpasswd"
+
+[Install]
+WantedBy=multi-user.target

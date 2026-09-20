@@ -1,0 +1,84 @@
+#!/bin/bash
+# Surface Laptop 13 (2095) live-media self-check. Read-only: prints a
+# PASS/WARN/FAIL banner for every subsystem that has bitten this board.
+set -u
+FAILS=0; WARNS=0
+pass() { printf '[PASS] %s\n' "$*"; }
+warn() { printf '[WARN] %s\n' "$*"; WARNS=$((WARNS+1)); }
+bad()  { printf '[FAIL] %s\n' "$*"; FAILS=$((FAILS+1)); }
+
+echo "================ Surface Laptop 13 self-check ================"
+uname -a
+
+echo "--- device tree"
+if [ -r /proc/device-tree/model ]; then
+  tr -d '\0' < /proc/device-tree/model | sed 's/^/model: /'
+else
+  bad "no /proc/device-tree/model (kernel booted without a DTB)"
+fi
+dtbase=/sys/firmware/devicetree/base
+if find "$dtbase" -name 'qcom,keep-edp-active-on-blank' 2>/dev/null | grep -q .; then
+  pass "DTB carries qcom,keep-edp-active-on-blank"
+else
+  bad "DTB is missing qcom,keep-edp-active-on-blank (panel will reset on blank)"
+fi
+if find "$dtbase" -name 'keep-panel-prepared-on-disable' 2>/dev/null | grep -q .; then
+  pass "DTB carries keep-panel-prepared-on-disable"
+else
+  bad "DTB is missing keep-panel-prepared-on-disable"
+fi
+
+echo "--- display"
+if zcat /proc/config.gz 2>/dev/null | grep -q '^CONFIG_DRM_MSM=y'; then
+  pass "msm built into the kernel (CONFIG_DRM_MSM=y)"
+elif [ -d /sys/module/msm ]; then
+  warn "msm present but possibly modular - check /proc/config.gz availability"
+else
+  bad "msm driver not present at all"
+fi
+if [ -d /sys/class/drm ] && ls /sys/class/drm/ 2>/dev/null | grep -q .; then
+  ls /sys/class/drm/ | sed 's/^/drm node: /'
+  for c in /sys/class/drm/card*-eDP-*/status; do
+    [ -r "$c" ] && echo "eDP status: $(cat "$c")"
+  done
+  pass "drm subsystem registered"
+else
+  bad "no drm nodes (display driver failed)"
+fi
+dmesg | grep -iE 'msm|panel' | grep -iE 'fail|error|reset' | tail -5 | sed 's/^/dmesg: /'
+
+echo "--- storage (UFS)"
+if [ -r /sys/module/ufshcd_core/parameters/use_mcq_mode ]; then
+  mcq=$(cat /sys/module/ufshcd_core/parameters/use_mcq_mode)
+  [ "$mcq" = "0" ] && pass "ufshcd use_mcq_mode=0 (Kioxia quirk active)" \
+    || bad "ufshcd use_mcq_mode=$mcq (Kioxia UFS will wedge)"
+else
+  warn "ufshcd_core parameter not visible"
+fi
+lsblk -o NAME,SIZE,FSTYPE,MODEL | sed 's/^/  /'
+
+echo "--- wifi (ath12k / WCN7850)"
+if ls /usr/lib/firmware/qcom/WCN7850/hw2.0/* >/dev/null 2>&1; then
+  ls /usr/lib/firmware/qcom/WCN7850/hw2.0/ | sed 's/^/fw: /'
+  pass "WCN7850 firmware present"
+else
+  bad "WCN7850 firmware missing from live env"
+fi
+iwctl device list 2>/dev/null | sed 's/^/  /' || true
+
+echo "--- services"
+for u in sshd usbmuxd; do
+  systemctl is-active --quiet "$u" && pass "$u running" || warn "$u not running"
+done
+
+echo "--- network"
+ip -br link | grep -v '^lo' | sed 's/^/  /'
+ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 && pass "1.1.1.1 reachable" || warn "no internet (tether or join wifi)"
+getent hosts archlinux.org >/dev/null 2>&1 && pass "DNS resolves" || warn "DNS not resolving (echo nameserver 1.1.1.1 > /etc/resolv.conf)"
+
+echo "=============================================================="
+if [ "$FAILS" -eq 0 ]; then
+  echo "SELF-CHECK OK ($WARNS warnings) - media is healthy, safe to install"
+else
+  echo "SELF-CHECK: $FAILS FAILURES, $WARNS warnings - photo this screen"
+fi
