@@ -25,7 +25,7 @@ set -x
 
 BASE_DTB="$ESP/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb"
 [ -s "$BASE_DTB" ]
-strings "$BASE_DTB" | grep -q 'microsoft,surface-laptop-13-2095'
+strings "$BASE_DTB" | grep 'microsoft,surface-laptop-13-2095' >/dev/null
 
 KIMG=$(find "$ESP" -maxdepth 3 -type f \( -name 'Image' -o -name 'Image.gz' -o -name 'vmlinuz*' \) -print -quit 2>/dev/null)
 [ -s "$KIMG" ] || { echo "kernel image not found"; ls -la "$ESP"; exit 1; }
