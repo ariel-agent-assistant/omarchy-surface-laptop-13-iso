@@ -60,7 +60,8 @@ for p in /usr/lib/systemd/ukify /usr/bin/ukify; do [ -x "$p" ] && UKIFY=$p && br
 grep -q 'Surface Headless' "$ESP/limine.conf" || printf '\n/Surface Headless\n    protocol: efi\n    path: boot():/EFI/Linux/surface-headless.efi\n' >> "$ESP/limine.conf"
 
 set +x
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+IP=$(hostname -I 2>/dev/null || true)
+IP=${IP%% *}
 echo
 echo '################## HEADLESS SETUP DONE ##################'
 echo "# sshd enabled, root login on. LAN IP now: $IP"
