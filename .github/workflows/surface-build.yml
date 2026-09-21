@@ -73,25 +73,33 @@ jobs:
           require '/usr/local/bin/surface13-selfcheck$'
           require '/etc/systemd/system/multi-user.target.wants/sshd.service'   # symlink: unsquashfs -ll appends ' -> target', no $ anchor
           require '/etc/systemd/network/10-surface13-wired.network$'
-          require '/boot/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb$'
+          # mkarchiso deletes ALL of /boot from the airootfs before mksquashfs
+          # (upstream "Cleaning up in pacstrap location"), so the live kernel,
+          # UKI and dtbs exist ONLY on the ISO filesystem, never in the squashfs.
+          out=$(xorriso -indev "$iso" -ls /arch/boot/aarch64/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb 2>&1)
+          grep -q "x1p42100-microsoft-surface-laptop-13.dtb'" <<< "$out" \
+            || { echo "ISO is missing the Surface Laptop 13 DTB" >&2; exit 1; }
           # Offline mirror packages whose absence previously broke installs.
           require 'var/cache/omarchy/mirror/offline/openssh-[^/]*pkg.tar'
           require 'var/cache/omarchy/mirror/offline/systemd-ukify-[^/]*pkg.tar'
           require 'var/cache/omarchy/mirror/offline/surface-laptop-13-support-[^/]*pkg.tar'
           # The kernel in the live env must be the patched epoch-1 build.
-          require 'var/cache/omarchy/mirror/offline/linux-aarch64-7.2.6-1-aarch64.pkg.tar'
+          require 'var/cache/omarchy/mirror/offline/linux-aarch64-1:7.2.6-1-aarch64.pkg.tar'   # epoch-pinned: our patched build, not stock
           echo "-- WCN7850 firmware inventory (warning only):"
           grep -iE 'firmware/qcom/[^ ]*WCN7850' "$listing" | head -20 || \
             echo "WARNING: no WCN7850 firmware paths under firmware/qcom - wifi may be degraded"
           echo "-- UFS/Venus firmware inventory (warning only):"
           grep -iE 'firmware/qcom/[^ ]*(venus|x1p42100|ufs)' "$listing" | head -20 || true
-          # The live kernel Image must carry the display drivers built in.
-          unsquashfs -d "$work/boot" -f "$work/airootfs.sfs" boot/vmlinuz-linux-aarch64 >/dev/null
-          if command -v zcat >/dev/null && zcat "$work/boot/boot/vmlinuz-linux-aarch64" 2>/dev/null | grep -q '7.2.6-1-aarch64-ARCH'; then
+          # The live kernel Image rides inside the UKI on the ISO; check the
+          # patched-build version string in its .linux section.
+          xorriso -osirrox on -indev "$iso" -extract /arch/boot/aarch64/omarchy-live.efi "$work/omarchy-live.efi" >/dev/null
+          objcopy -O binary --only-section=.linux "$work/omarchy-live.efi" "$work/vmlinuz" 2>/dev/null \
+            || cp "$work/omarchy-live.efi" "$work/vmlinuz"
+          if zcat "$work/vmlinuz" 2>/dev/null | grep -q '7.2.6-1-aarch64-ARCH'; then
             echo "live kernel version string verified"
           else
-            strings "$work/boot/boot/vmlinuz-linux-aarch64" | grep -m1 'Linux version' || true
-            strings "$work/boot/boot/vmlinuz-linux-aarch64" | grep -q '7.2.6-1-aarch64-ARCH' \
+            strings "$work/vmlinuz" | grep -m1 'Linux version' || true
+            strings "$work/vmlinuz" | grep -q '7.2.6-1-aarch64-ARCH' \
               || { echo "live kernel is NOT the patched 7.2.6-1-aarch64-ARCH build" >&2; exit 1; }
           fi
           echo "airootfs verification passed"
