@@ -32,7 +32,9 @@ KIMG=$(find "$ESP" -maxdepth 3 -type f \( -name 'Image' -o -name 'Image.gz' -o -
 INITRD=$(find "$ESP" -maxdepth 3 -type f -name 'initramfs-linux*.img' ! -name '*fallback*' 2>/dev/null | head -n1)
 [ -s "$KIMG" ] && [ -s "$INITRD" ] || { echo "kernel/initramfs not found on ESP"; ls -la "$ESP"; exit 1; }
 
-CMDLINE=$(sed -E 's/(^| )(nomodeset|msm\.modeset=0|plymouth\.enable=0|rd\.plymouth=0)( |$)/ /g; s/[[:space:]]+/ /g; s/^ //; s/ $//' /etc/kernel/cmdline)
+CMDLINE=$(sed -E 's/(^| )(nomodeset|msm\.modeset=0|plymouth\.enable=0|rd\.plymouth=0|quiet|splash|loglevel=[0-9]+|rd\.udev\.log_level=[0-9]+|systemd\.show_status=[a-z]+)( |$)/ /g; s/[[:space:]]+/ /g; s/^ //; s/ $//' /etc/kernel/cmdline)
+CMDLINE="$CMDLINE ignore_loglevel drm.debug=0x117"
+
 [ -n "$CMDLINE" ]
 printf '%s\n' "$CMDLINE" > /tmp/direct-uki-cmdline
 
