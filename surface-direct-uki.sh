@@ -24,12 +24,12 @@ set -x
 # --- components ---
 DTB="$ESP/dtbs/qcom/x1p42100-microsoft-surface-laptop-13.dtb"
 [ -s "$DTB" ]
-strings "$DTB" | grep -q 'microsoft,surface-laptop-13-2095'
-strings "$DTB" | grep -q 'keep-edp-active-on-blank'
-strings "$DTB" | grep -q 'keep-panel-prepared-on-disable'
+strings "$DTB" | grep 'microsoft,surface-laptop-13-2095' >/dev/null
+strings "$DTB" | grep 'keep-edp-active-on-blank' >/dev/null
+strings "$DTB" | grep 'keep-panel-prepared-on-disable' >/dev/null
 
-KIMG=$(find "$ESP" -maxdepth 3 -type f \( -name 'Image' -o -name 'Image.gz' -o -name 'vmlinuz*' \) 2>/dev/null | head -n1)
-INITRD=$(find "$ESP" -maxdepth 3 -type f -name 'initramfs-linux*.img' ! -name '*fallback*' 2>/dev/null | head -n1)
+KIMG=$(find "$ESP" -maxdepth 3 -type f \( -name 'Image' -o -name 'Image.gz' -o -name 'vmlinuz*' \) -print -quit 2>/dev/null)
+INITRD=$(find "$ESP" -maxdepth 3 -type f -name 'initramfs-linux*.img' ! -name '*fallback*' -print -quit 2>/dev/null)
 [ -s "$KIMG" ] && [ -s "$INITRD" ] || { echo "kernel/initramfs not found on ESP"; ls -la "$ESP"; exit 1; }
 
 CMDLINE=$(sed -E 's/(^| )(nomodeset|msm\.modeset=0|plymouth\.enable=0|rd\.plymouth=0|quiet|splash|loglevel=[0-9]+|rd\.udev\.log_level=[0-9]+|systemd\.show_status=[a-z]+)( |$)/ /g; s/[[:space:]]+/ /g; s/^ //; s/ $//' /etc/kernel/cmdline)
@@ -62,7 +62,7 @@ PART=$(lsblk -n -o PARTN "$SRC")
 efibootmgr --create --disk "$DISK" --part "$PART" \
   --label 'Omarchy Surface Direct' \
   --loader '\EFI\Linux\surface-direct.efi'
-BN=$(efibootmgr | awk '/Omarchy Surface Direct/{gsub(/Boot|\*/,"",$1); print $1; exit}')
+BN=$(efibootmgr | awk '/Omarchy Surface Direct/{gsub(/Boot|\*/,"",$1); print $1}' | sed -n '1p')
 [ -n "$BN" ]
 efibootmgr --bootnext "$BN"
 set +x
