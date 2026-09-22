@@ -1,0 +1,46 @@
+--- a/drivers/gpu/drm/panel/panel-edp.c
++++ b/drivers/gpu/drm/panel/panel-edp.c
+@@ -144,6 +144,16 @@
+ 	unsigned int disable;
+ 
+ 	/**
++	 * @pre_unprepare: Time for the end of video data to power off.
++	 *
++	 * The time (in milliseconds) that it needs to have passed between
++	 * the end of valid video data from source and start powering off.
++	 *
++	 * This is T10-min on eDP timing diagrams. It is not common to set.
++	 */
++	unsigned int pre_unprepare;
++
++	/**
+ 	 * @unprepare: Time to power down completely.
+ 	 *
+ 	 * The time (in milliseconds) that it takes for the panel
+@@ -412,8 +422,12 @@
+ 
+ static int panel_edp_unprepare(struct drm_panel *panel)
+ {
++	struct panel_edp *p = to_panel_edp(panel);
+ 	int ret;
+ 
++	if (p->desc->delay.pre_unprepare)
++		msleep(p->desc->delay.pre_unprepare);
++
+ 	ret = pm_runtime_put_sync_suspend(panel->dev);
+ 	if (ret < 0)
+ 		return ret;
+@@ -1809,6 +1823,13 @@
+ 	.prepare_to_enable = 200,
+ };
+ 
++static const struct panel_delay delay_200_500_e80_pu100 = {
++	.hpd_absent = 200,
++	.unprepare = 500,
++	.enable = 80,
++	.pre_unprepare = 100,
++};
++
+ static const struct panel_delay delay_100_500_e200 = {
+ 	.hpd_absent = 100,
+ 	.unprepare = 500,

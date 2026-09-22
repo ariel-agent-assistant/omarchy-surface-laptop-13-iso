@@ -1,0 +1,58 @@
+name: kernel-image-r12
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential bc libssl-dev patch curl xz-utils python3
+      - name: fetch source
+        run: |
+          curl -sL https://www.kernel.org/pub/linux/kernel/v7.x/linux-7.2.6.tar.xz -o linux.tar.xz
+          echo "039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606  linux.tar.xz" | sha256sum -c
+          tar xf linux.tar.xz && mv linux-7.2.6 linux
+      - name: patch series 0001-0007 + 0012-0015
+        run: |
+          cd linux
+          P=$GITHUB_WORKSPACE/builder/local-pkgs/linux-surface13
+          for p in 0001-arm64-dts-rockchip-disable-pwm0-on-rk3399-firefly.patch 0002-pps-Compatibility-hack-should-be-X86-specific.patch 0003-Revert-arm64-dts-rockchip-Move-rk3568-PCIe3-MSI-to-u.patch 0004-serial-amba-pl011-add-arm-pl011-axi-binding-for-RP1.patch 0005-arm64-dts-rpi5-add-RP1-UART0-GPIO14-15-console.patch 0006-ufs-add-pa-tactivate-quirk-for-kioxia-thgjfmt1e45batvb.patch 0007-drm-panel-edp-recognize-lgd-07ad.patch 0012-drm-msm-dp-skip-push-idle-when-link-never-enabled.patch 0013-drm-msm-dpu-clear-pending-peripheral-flush-state.patch 0014-drm-panel-edp-add-pre-unprepare-delay.patch 0015-drm-keep-surface-edp-active-on-blank-r12.patch; do
+            patch -p1 --forward < "$P/$p" || exit 1
+          done
+          [ "$(grep -c 'There is nothing to push idle' drivers/gpu/drm/msm/dp/dp_display.c)" = "1" ] || exit 1
+          [ "$(grep -c 'keep_edp_active_on_blank' drivers/gpu/drm/msm/dp/dp_display.c)" -ge "3" ] || exit 1
+          [ "$(grep -c 'pre_unprepare' drivers/gpu/drm/panel/panel-edp.c)" = "5" ] || exit 1
+          [ "$(grep -c '0x07ad' drivers/gpu/drm/panel/panel-edp.c)" = "1" ] || exit 1
+          [ "$(grep -c 'pending_periph_flush_mask = 0' drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c)" = "1" ] || exit 1
+          echo PATCH-SERIES-OK
+      - name: config and build
+        run: |
+          cd linux
+          cp $GITHUB_WORKSPACE/builder/local-pkgs/linux-surface13/config .config
+          chmod +x scripts/config
+          ./scripts/config --disable ARM64_LSUI
+          grep -E '^CONFIG_DRM_MSM_DP=y|^CONFIG_DRM_PANEL_EDP=y|^CONFIG_PHY_QCOM_EDP=y|^CONFIG_DRM_MSM_DPU=y' .config | wc -l | grep -q '^4$' || exit 1
+          make -j$(nproc) Image
+          make -s kernelrelease
+      - name: package and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd linux
+          KR=$(make -s kernelrelease)
+          [ "$KR" = "7.2.6" ] || { echo "kernelrelease mismatch: $KR"; exit 1; }
+          mkdir -p ../dist && cd ../dist
+          cp ../linux/arch/arm64/boot/Image "Image-$KR-sl13-r12"
+          cp ../linux/.config "kernel-config-$KR-sl13-r12"
+          sha256sum "Image-$KR-sl13-r12" > SHA256SUMS
+          xz -9 -k "Image-$KR-sl13-r12"
+          sha256sum "Image-$KR-sl13-r12.xz" >> SHA256SUMS
+          gh release create kernel-7.2.6-sl13-r12 ./*             --repo ${{ github.repository }}             --title "kernel 7.2.6-sl13 r12 (stable base + display backport: skip-PUSH_IDLE, dpu periph flush, panel-edp pre_unprepare, refreshed keep-edp)"             --notes "Stable 7.2.6 (kernel.org tarball SHA256-verified) + 0001-0007 (ALARM/Kioxia/panel patches) + 0012=e249a6e2a1 (skip PUSH_IDLE when link never enabled - the TZ force-stop/reset fix) + 0013=a5b5cc9099 (dpu clear pending peripheral flush) + 0014=c8d3d795dd refreshed (panel-edp pre_unprepare delay) + 0015=0008 keep-edp refreshed against 0012 (keep-edp branch AFTER the !power_on guard). Config: daily 7.2.6 config + LSUI=n. Built native aarch64 GCC11 (ubuntu-22.04-arm). EXCLUDED: the 15-commit dp enable/disable refactor (needs 7.3-era drm-bridge atomic_create_state core API 7.2.6 lacks) and 58995b11df widebus fix (DT uses no wide bus). dtb/initramfs unchanged."
+      - name: backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-r12
+          path: dist/
