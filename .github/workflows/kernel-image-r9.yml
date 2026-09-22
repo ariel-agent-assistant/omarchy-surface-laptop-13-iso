@@ -1,0 +1,61 @@
+name: kernel-image-r9
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq build-essential bc libssl-dev patch curl xz-utils python3
+      - name: fetch source
+        run: |
+          curl -sL https://github.com/torvalds/linux/archive/refs/tags/v7.3-rc4.tar.gz -o linux.tgz
+          tar xf linux.tgz && mv linux-7.3-rc4 linux
+      - name: patch series 0001-0008 + 0010
+        run: |
+          cd linux
+          P=$GITHUB_WORKSPACE/builder/local-pkgs/linux-surface13
+          for p in 0001-arm64-dts-rockchip-disable-pwm0-on-rk3399-firefly.patch 0002-pps-Compatibility-hack-should-be-X86-specific.patch 0003-Revert-arm64-dts-rockchip-Move-rk3568-PCIe3-MSI-to-u.patch 0004-serial-amba-pl011-add-arm-pl011-axi-binding-for-RP1.patch 0005-arm64-dts-rpi5-add-RP1-UART0-GPIO14-15-console.patch 0006-ufs-add-pa-tactivate-quirk-for-kioxia-thgjfmt1e45batvb.patch 0007-drm-panel-edp-recognize-lgd-07ad.patch; do
+            patch -p1 --forward < "$P/$p" || exit 1
+          done
+          patch -p1 --forward < "$P/0008-drm-keep-surface-edp-active-on-blank.patch" || true
+          python3 "$P/apply-0008-rc4.py" || exit 1
+          patch -p1 --forward < "$P/0010-revert-ufs-qcom-rc4-series-to-7.2.6.patch" || exit 1
+          [ "$(grep -c keep_prepared_on_disable drivers/gpu/drm/bridge/panel.c)" = "3" ] || exit 1
+          [ "$(grep -c edp_blanked drivers/gpu/drm/msm/dp/dp_display.c)" = "5" ] || exit 1
+          rm -f drivers/gpu/drm/bridge/panel.c.rej drivers/gpu/drm/msm/dp/dp_display.c.rej drivers/gpu/drm/bridge/panel.c.orig drivers/gpu/drm/msm/dp/dp_display.c.orig
+          echo PATCH-SERIES-OK
+      - name: config and build
+        run: |
+          cd linux
+          cp $GITHUB_WORKSPACE/builder/local-pkgs/linux-surface13/config-noqos-ufs .config
+          chmod +x scripts/config
+          ./scripts/config --disable ARM64_LSUI
+          ! grep -E '^CONFIG_ARM64_LSUI=y' .config || exit 1
+          make -j$(nproc) Image
+          make -s kernelrelease
+      - name: package and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd linux
+          KR=$(make -s kernelrelease)
+          [ "$KR" = "7.3.0-rc4-surface-laptop-13" ] || { echo "kernelrelease mismatch: $KR"; exit 1; }
+          mkdir -p ../dist && cd ../dist
+          cp ../linux/arch/arm64/boot/Image "Image-$KR-r9"
+          cp ../linux/.config "kernel-config-$KR-r9"
+          sha256sum "Image-$KR-r9" > SHA256SUMS
+          xz -9 -k "Image-$KR-r9"
+          sha256sum "Image-$KR-r9.xz" >> SHA256SUMS
+          gh release create kernel-7.3.0-rc4-sl13-r9 ./* \
+            --repo ${{ github.repository }} \
+            --title "kernel 7.3.0-rc4-sl13 r8 (FULL ufs-qcom.c revert to 7.2.6 semantics, noqos-ufs config, LSUI=n)" \
+            --notes "v7.3-rc4 + 0001-0008 + 0010 (FULL ufs-qcom.c 7.2.6-semantics revert: spare-cfg capture+restore, TX EQ recovery semantics, devfreq, MCQ print). Config: exact noqos-ufs ikconfig (SHA-verified 309971d8 source Image) + ARM64_LSUI=n. Built native aarch64 GCC13 (ubuntu-24.04-arm). dtb unchanged from kernel-7.3.0-rc4-sl13 release."
+      - name: backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-r9
+          path: dist/
