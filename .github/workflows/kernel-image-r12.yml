@@ -43,7 +43,7 @@ jobs:
         run: |
           cd linux
           KR=$(make -s kernelrelease)
-          [ "$KR" = "7.2.6" ] || { echo "kernelrelease mismatch: $KR"; exit 1; }
+          [ "$KR" = "7.2.6-ARCH" ] || { echo "kernelrelease mismatch: $KR"; exit 1; }
           mkdir -p ../dist && cd ../dist
           cp ../linux/arch/arm64/boot/Image "Image-$KR-sl13-r12"
           cp ../linux/.config "kernel-config-$KR-sl13-r12"
