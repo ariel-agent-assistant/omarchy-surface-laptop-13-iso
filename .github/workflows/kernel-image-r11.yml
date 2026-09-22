@@ -53,7 +53,7 @@ jobs:
           sha256sum "Image-$KR-r11.xz" >> SHA256SUMS
           gh release create kernel-7.3.0-rc4-sl13-r11 ./* \
             --repo ${{ github.repository }} \
-            --title "kernel 7.3.0-rc4-sl13 r11 (r10 recipe: FULL UFS subsystem 7.2.6 semantics, noqos-ufs config, LSUI=n, GCC11 ubuntu-22.04-arm)"
+            --title "kernel 7.3.0-rc4-sl13 r11 (r10 recipe: FULL UFS subsystem 7.2.6 semantics, noqos-ufs config, LSUI=n, GCC11 ubuntu-22.04-arm)" \
             --notes "Same source+config as r10 (v7.3-rc4 + 0001-0008 + 0010 ufs-qcom revert + 0011 ufshcd/mcq/txeq/pltfrm revert). ONLY change vs r10: toolchain. r10-control proved exact round-7 source DIES on GCC13/ubuntu-24.04-arm but BOOTS on GCC11.4, so this re-cut uses ubuntu-22.04-arm (GCC 11.x) matching the proven round-7 build. dtb unchanged from kernel-7.3.0-rc4-sl13 release."
       - name: backup artifact
         uses: actions/upload-artifact@v4
