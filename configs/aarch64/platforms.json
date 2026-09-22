@@ -82,7 +82,8 @@
         "clk_ignore_unused",
         "pd_ignore_unused",
         "arm64.nopauth",
-        "ufshcd_core.use_mcq_mode=0"
+        "ufshcd_core.use_mcq_mode=0",
+        "msm.modeset=0"
       ]
     }
   ]
