@@ -1,0 +1,17 @@
+--- a/drivers/ufs/host/ufs-qcom.c
++++ b/drivers/ufs/host/ufs-qcom.c
+@@ -738,14 +738,6 @@
+ 		 */
+ 		err = ufshcd_disable_host_tx_lcc(hba);
+ 
+-		/*
+-		 * Restore HS/LS link startup mode set by bootloader
+-		 * after UFS reset clears REG_UFS_DEBUG_SPARE_CFG.
+-		 */
+-		if (host->hw_ver.major > 0x6 ||
+-		    (host->hw_ver.major == 0x6 && host->hw_ver.minor >= 0x2))
+-			ufshcd_writel(hba, host->boot_spare_cfg,
+-				      REG_UFS_DEBUG_SPARE_CFG);
+ 		break;
+ 	case POST_CHANGE:
+ 		ufs_qcom_link_startup_post_change(hba);
